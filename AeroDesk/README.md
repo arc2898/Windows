@@ -1,29 +1,28 @@
 # AeroDesk
 
-**AeroDesk is a lightweight Windows 11 glass-widget host.** It is designed as an independent WPF app and does not require Windhawk, Rainmeter, injected DLLs, Explorer patching, or a background service.
+**AeroDesk is a lightweight Windows 11 glass-widget host.** It is an independent WPF application and does not require Windhawk, Rainmeter, injected DLLs, Explorer patching, or a background service.
 
-> This project is under active development. The Windows CI workflow is the authoritative build and packaging environment. This Linux authoring environment does not have the Windows Desktop targeting pack, so a local Windows build has not been run here.
+> Active development. The Windows CI workflow builds the application and installer on a Windows runner. Actual desktop UI testing and resource benchmarks still need to be performed on a Windows PC.
 
-## Current feature set
+## Features
 
-- Windows 11 Mica/system-backdrop request, with best-effort legacy acrylic fallback for app-owned windows.
+- Windows 11 Mica/system-backdrop request, with best-effort acrylic fallback for app-owned windows.
 - Floating, draggable, resizable widgets: clock, date, quick notes, memory/system monitor, network throughput, and battery status.
-- Persistent widget positions, sizes, visibility and notes stored in `%APPDATA%\AeroDesk\settings.json`.
-- Debounced autosave for notes and atomic settings writes with a backup file.
-- Tray icon with Open AeroDesk, Add Clock, Add Notes and Quit commands. Closing the dashboard hides it to the tray; Quit fully exits.
-- Per-user Windows startup toggle and topmost/opacity/glass settings.
-- Per-widget close action and saved widget restoration on next launch.
-- Self-contained x64 publishing, standard installer/uninstaller, portable ZIP and installer-media ISO using GitHub Actions.
+- Persistent widget positions, sizes, visibility, and notes in `%APPDATA%\AeroDesk\settings.json`.
+- Debounced note and layout saves.
+- Tray icon, per-user Windows startup toggle, topmost/opacity/glass settings.
+- Self-contained Windows x64 publish, installer with built-in uninstaller, and portable ZIP.
 
 ## Resource design
 
-The app has no continuously running Windows service. Updates are timer-driven only by widget type: clock every second, network every two seconds, system metrics every five seconds, battery every ten seconds, and notes autosave after a short debounce. Network enumeration and memory polling are not performed when no matching widget is open. There are no third-party runtime NuGet dependencies. Resource comparisons versus Windhawk or Rainmeter require repeatable measurements on the same PC; this repository makes no unsupported claim that a particular RAM/CPU number is lower.
+No continuously running Windows service. Widgets use timer-driven updates: clock every second, network every two seconds, system metrics every five seconds, battery every ten seconds. Network enumeration and memory polling run only when the corresponding widget is open. No third-party runtime NuGet dependencies.
+
+Claims of lower CPU/RAM use than Windhawk or Rainmeter require repeatable measurements on the same PC; this project does not claim unverified benchmark results.
 
 ## Requirements
 
-- Windows 11 x64 (Windows 10 may work for some visual modes, but the appearance is primarily tuned for Windows 11).
-- .NET 8 SDK to build locally, or .NET 8 runtime is not needed for the self-contained published build.
-- Optional Visual Studio 2022 with the .NET desktop workload.
+- Windows 11 x64 (Windows 10 may work with reduced visual effects).
+- .NET 8 SDK to build locally; the self-contained published build does not require a separately installed .NET runtime.
 
 ## Build from source
 
@@ -34,47 +33,39 @@ dotnet build .\src\AeroDesk\AeroDesk.csproj -c Release
 dotnet run --project .\src\AeroDesk\AeroDesk.csproj -c Release
 ```
 
-Publish a self-contained portable executable:
+Publish a self-contained portable build:
 
 ```powershell
 dotnet publish .\src\AeroDesk\AeroDesk.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o .\artifacts\publish
 ```
 
-`.\scripts\Build-Release.ps1` additionally invokes Inno Setup if `ISCC.exe` is installed. The GitHub Actions workflow installs the packaging tools automatically.
+`.\scripts\Build-Release.ps1` publishes the app and invokes Inno Setup when `ISCC.exe` is installed. GitHub Actions installs the packaging tool automatically.
 
-## Installer, uninstaller and ISO
+## Windows installer
 
-On every GitHub Actions run, the Windows build workflow produces:
+Each GitHub Actions run creates:
 
-- `AeroDesk-Setup-0.2.0-x64.exe` — per-user installer (no elevation should be required).
-- A built-in Windows uninstaller, shown in **Settings → Apps → Installed apps**.
+- `AeroDesk-Setup-0.2.0-x64.exe` — per-user installer.
+- Standard Windows uninstaller listed under **Settings → Apps → Installed apps**.
 - `AeroDesk-Portable-win-x64.zip` — self-contained portable build.
-- `AeroDesk-0.2.0-x64.iso` — ISO9660/Joliet software media containing the installer and README.
 
-The ISO is **not bootable** and does not modify or reinstall Windows. Mount it in File Explorer and launch the setup executable. Uninstalling offers to preserve or delete the user's notes and settings. Releases can be generated by pushing a tag such as `aerodesk-v0.2.0`; the same workflow attaches the packages to that GitHub Release.
+**No ISO is generated.** The installer is not currently code-signed, so Windows SmartScreen may display a warning. Uninstalling offers to preserve or delete the user's notes and settings.
 
-To create the ISO locally after preparing a folder containing `AeroDesk-Setup.exe` and `README.txt`:
+## Limitations
 
-```powershell
-python -m pip install pycdlib
-python .\scripts\make_iso.py --input .\artifacts\media --output .\artifacts\AeroDesk-0.2.0-x64.iso
-```
+- AeroDesk styles only windows it owns. Windows does not provide a supported API to restore Windows 7 Aero Glass for all third-party windows.
+- Desktop WorkerW parenting and desktop-icon layering are not implemented yet.
+- The app has not yet been benchmarked against Windhawk or Rainmeter on the same machine.
+- Test the UI on a Windows 11 desktop; successful CI compilation alone does not verify visual behavior.
 
-## Limitations / security
+## Configuration and privacy
 
-- Windows 11 does not expose a supported public API that restores Windows 7 Aero Glass to every third-party window. AeroDesk only styles windows it owns. The old `SetWindowCompositionAttribute` acrylic fallback is undocumented and may change in a Windows update.
-- The published installer is not code-signed by this project. Windows SmartScreen may display a warning until the software is signed and reputation is established.
-- The ISO is a distribution container, not a Windows setup image.
-- No automated UI testing can verify the actual blur/desktop layering without running the app in a Windows desktop session; use CI build success and then test on a Windows 11 machine.
+Settings and notes are stored locally for the current Windows user in `%APPDATA%\AeroDesk`. Startup integration writes only the current user's `Run` registry key. No administrator permissions are intended to be required.
 
-## Configuration and data
+## Roadmap
 
-Settings and notes are local to the current Windows user in `%APPDATA%\AeroDesk`. Startup integration writes only the current user's `Run` registry key. The app does not require administrator permissions.
-
-## Development roadmap
-
-- [ ] Test across supported Windows 11 builds and graphics settings.
-- [ ] Add genuine desktop WorkerW parenting/desktop-only layering after focused compatibility testing.
+- [ ] Test across supported Windows 11 builds and graphics configurations.
+- [ ] Add desktop-only layering after focused compatibility testing.
 - [ ] Add widget layout import/export and a more capable calendar.
-- [ ] Add a benchmark harness for idle CPU/RAM and event-driven update measurements.
-- [ ] Add signing and a signed release pipeline.
+- [ ] Add repeatable idle CPU/RAM benchmarks.
+- [ ] Add code signing.

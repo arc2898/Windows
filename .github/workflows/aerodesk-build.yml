@@ -1,4 +1,4 @@
-name: Windows build, installer and ISO
+name: Windows build and installer
 on:
   push:
   pull_request:
@@ -16,9 +16,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
       - name: Install packaging tools
         shell: pwsh
         run: |
@@ -32,9 +29,6 @@ jobs:
           $isccPath = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
           if (-not $isccPath) { $isccPath = $candidatePaths | Where-Object { Test-Path $_ } | Select-Object -First 1 }
           if (-not $isccPath) { choco install innosetup --yes --no-progress }
-          python -m pip install --disable-pip-version-check pycdlib
-      - name: Test ISO packaging
-        run: python -m unittest discover -s AeroDesk/tests -v
       - name: Publish self-contained x64 app
         shell: pwsh
         run: |
@@ -59,22 +53,10 @@ jobs:
           if (-not $isccPath) { throw 'ISCC.exe not found; install Inno Setup or add it to PATH.' }
           & $isccPath '/DAppVersion=0.2.0' "/DSourceDir=$((Resolve-Path 'AeroDesk/artifacts/publish').Path)" 'AeroDesk/scripts/AeroDesk.iss'
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup build failed.' }
-      - name: Prepare ISO contents and portable archive
+      - name: Create portable archive
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force AeroDesk/artifacts/media | Out-Null
-          Copy-Item (Get-ChildItem AeroDesk/artifacts/installer/*.exe | Select-Object -First 1).FullName 'AeroDesk/artifacts/media/AeroDesk-Setup.exe'
-          @(
-            'AeroDesk 0.2.0 for Windows 11 x64',
-            '',
-            'Run AeroDesk-Setup.exe to install. The installer registers a standard Windows uninstaller under Settings > Apps > Installed apps.',
-            'Widgets and notes are saved under %APPDATA%\AeroDesk. During uninstall you can choose to keep or remove them.',
-            '',
-            'The ISO is a software-media disc, not a bootable Windows installation image. Open it in File Explorer or mount it from the right-click menu.'
-          ) | Set-Content -Encoding UTF8 'AeroDesk/artifacts/media/README.txt'
           Compress-Archive -Path 'AeroDesk/artifacts/publish/*' -DestinationPath 'AeroDesk/artifacts/AeroDesk-Portable-win-x64.zip' -Force
-      - name: Build ISO
-        run: python AeroDesk/scripts/make_iso.py --input AeroDesk/artifacts/media --output AeroDesk/artifacts/AeroDesk-0.2.0-x64.iso
       - name: Upload release artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -83,7 +65,6 @@ jobs:
           path: |
             AeroDesk/artifacts/installer/*.exe
             AeroDesk/artifacts/AeroDesk-Portable-win-x64.zip
-            AeroDesk/artifacts/AeroDesk-0.2.0-x64.iso
       - name: Publish GitHub release for version tag
         if: startsWith(github.ref, 'refs/tags/aerodesk-v')
         uses: softprops/action-gh-release@v2
@@ -92,4 +73,3 @@ jobs:
           files: |
             AeroDesk/artifacts/installer/*.exe
             AeroDesk/artifacts/AeroDesk-Portable-win-x64.zip
-            AeroDesk/artifacts/AeroDesk-0.2.0-x64.iso
