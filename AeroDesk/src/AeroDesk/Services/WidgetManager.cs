@@ -23,11 +23,9 @@ public sealed class WidgetManager : IDisposable
             return alreadyOpen;
         }
         var record = new WidgetRecord { Kind = kind };
-        {
-            record.Left = Math.Max(16, SystemParameters.WorkArea.Width - record.Width - 32);
-            record.Top = 70 + _settings.Widgets.Count * 18 % 350;
-            _settings.Widgets.Add(record);
-        }
+        record.Left = Math.Max(16, SystemParameters.WorkArea.Width - record.Width - 32);
+        record.Top = 70 + _settings.Widgets.Count * 18 % 350;
+        _settings.Widgets.Add(record);
         record.Visible = true;
         var window = Create(record);
         window.Show();
@@ -64,10 +62,10 @@ public sealed class WidgetManager : IDisposable
     {
         record.Left = window.Left; record.Top = window.Top; record.Width = window.Width; record.Height = window.Height;
     }
-    public void ApplySettings()
+    public void ApplySettings(bool persist = true)
     {
         foreach (var window in _open.Values.ToArray()) window.ApplySettings(_settings);
-        Save();
+        if (persist) Save();
     }
     private void Save() { try { _store.Save(_settings); } catch { /* transient disk errors should not crash the UI */ } }
     public void Dispose()

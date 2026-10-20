@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.ComponentModel;
+using System.Windows.Threading;
 using AeroDesk.Models;
 using AeroDesk.Services;
 
@@ -11,10 +12,12 @@ public partial class MainWindow : Window
 {
     private bool _initializing = true;
     private readonly string[] _kinds = ["clock", "calendar", "notes", "system", "network", "battery"];
+    private readonly DispatcherTimer _opacitySaveTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
 
     public MainWindow()
     {
         InitializeComponent();
+        _opacitySaveTimer.Tick += (_, _) => { _opacitySaveTimer.Stop(); App.Settings.Save(App.CurrentSettings); };
         foreach (var kind in _kinds)
         {
             var button = new Button { Padding = new Thickness(12), Margin = new Thickness(4), MinHeight = 74, HorizontalContentAlignment = HorizontalAlignment.Left };
@@ -77,8 +80,9 @@ public partial class MainWindow : Window
     {
         if (_initializing || App.CurrentSettings is null) return;
         App.CurrentSettings.WidgetOpacity = OpacitySlider.Value;
-        App.Settings.Save(App.CurrentSettings);
-        App.Widgets?.ApplySettings();
+        App.Widgets?.ApplySettings(persist: false);
+        _opacitySaveTimer.Stop();
+        _opacitySaveTimer.Start();
     }
 
     public void RefreshStats() => StatsText.Text = $"{App.Widgets?.ActiveCount ?? 0} widgets active  •  Settings stored in %APPDATA%\\AeroDesk";
@@ -90,7 +94,12 @@ public partial class MainWindow : Window
     private void Quit_Click(object sender, RoutedEventArgs e) => App.RequestShutdown();
     private void Window_Closing(object? sender, CancelEventArgs e)
     {
-        if (App.IsShuttingDown) return;
+        if (App.IsShuttingDown)
+        {
+            _opacitySaveTimer.Stop();
+            try { App.Settings.Save(App.CurrentSettings); } catch { }
+            return;
+        }
         e.Cancel = true;
         Hide();
     }

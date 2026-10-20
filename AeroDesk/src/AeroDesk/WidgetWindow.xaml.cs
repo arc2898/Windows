@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Threading;
 using AeroDesk.Models;
 using AeroDesk.Services;
@@ -19,7 +18,6 @@ public partial class WidgetWindow : Window
     private (long Received, long Sent) _lastNetwork;
     private DateTime _lastNetworkSample = DateTime.UtcNow;
     private bool _initializingNotes = true;
-    private bool _userClosed;
     public event EventHandler<string>? NoteChanged;
     public event EventHandler? WidgetClosed;
 
@@ -38,7 +36,7 @@ public partial class WidgetWindow : Window
         _noteDebounce.Tick += (_, _) => { _noteDebounce.Stop(); NoteChanged?.Invoke(this, NotesText.Text); };
         _timer = new DispatcherTimer { Interval = record.Kind == "clock" ? TimeSpan.FromSeconds(1) : record.Kind == "network" ? TimeSpan.FromSeconds(2) : record.Kind == "battery" ? TimeSpan.FromSeconds(10) : TimeSpan.FromSeconds(5) };
         _timer.Tick += (_, _) => RefreshContent();
-        _lastNetwork = SystemMetrics.NetworkTotals();
+        _lastNetwork = record.Kind == "network" ? SystemMetrics.NetworkTotals() : default;
         RefreshContent();
         SetOpacity(settings.WidgetOpacity);
     }
@@ -46,7 +44,7 @@ public partial class WidgetWindow : Window
     private void ConfigureKind(string kind)
     {
         Heading.Text = WidgetKinds.Label(kind).ToUpperInvariant();
-        var panel = kind switch
+        FrameworkElement panel = kind switch
         {
             "calendar" => CalendarPanel, "notes" => NotesText, "system" => SystemPanel,
             "network" => NetworkPanel, "battery" => BatteryPanel, _ => ClockPanel
@@ -61,7 +59,7 @@ public partial class WidgetWindow : Window
         var opacityMenu = new MenuItem { Header = "Reset size and position" };
         opacityMenu.Click += (_, _) => { Width = kind == "notes" ? 280 : 260; Height = kind == "notes" ? 230 : 160; Left = Math.Max(0, SystemParameters.WorkArea.Width - Width - 24); Top = 70; };
         var open = new MenuItem { Header = "Open AeroDesk" }; open.Click += (_, _) => App.ShowDashboard();
-        var close = new MenuItem { Header = "Close widget" }; close.Click += (_, _) => { _userClosed = true; Close(); };
+        var close = new MenuItem { Header = "Close widget" }; close.Click += (_, _) => Close();
         ContextMenu.Items.Add(pin); ContextMenu.Items.Add(opacityMenu); ContextMenu.Items.Add(open); ContextMenu.Items.Add(new Separator()); ContextMenu.Items.Add(close);
     }
 
