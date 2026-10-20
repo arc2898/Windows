@@ -3,6 +3,8 @@ using System.Windows;
 using System.Windows.Controls;
 using System.ComponentModel;
 using System.Windows.Threading;
+using Button = System.Windows.Controls.Button;
+using MessageBox = System.Windows.MessageBox;
 using AeroDesk.Models;
 using AeroDesk.Services;
 

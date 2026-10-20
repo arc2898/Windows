@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
 using System.Windows.Threading;
 using AeroDesk.Models;
 using AeroDesk.Services;
@@ -88,13 +89,17 @@ public partial class WidgetWindow : Window
             case "clock": ClockText.Text = now.ToString("HH:mm:ss"); ClockDate.Text = now.ToString("dddd, MMMM d"); break;
             case "calendar": CalendarDay.Text = now.ToString("dd"); CalendarMonth.Text = now.ToString("MMMM yyyy"); CalendarWeekday.Text = now.ToString("dddd"); break;
             case "system":
+            {
                 var memory = SystemMetrics.Memory(); MemoryValue.Text = $"{memory.UsedPercent}%"; MemoryBar.Value = memory.UsedPercent;
                 MemoryDetail.Text = $"{memory.Used} used of {memory.Total}";
-                using var process = Process.GetCurrentProcess(); var stamp = DateTime.UtcNow; var cpu = process.TotalProcessorTime;
+                using var process = Process.GetCurrentProcess();
+                var stamp = DateTime.UtcNow; var cpu = process.TotalProcessorTime;
                 var elapsed = Math.Max(0.01, (stamp - _previousSample).TotalSeconds);
                 var cpuPct = Math.Clamp((cpu - _previousCpu).TotalMilliseconds / (elapsed * Environment.ProcessorCount * 10), 0, 100);
                 ProcessDetail.Text = $"AeroDesk CPU: {cpuPct:0.0}%  •  {Environment.ProcessorCount} logical cores";
-                _previousCpu = cpu; _previousSample = stamp; break;
+                _previousCpu = cpu; _previousSample = stamp;
+                break;
+            }
             case "network":
                 var net = SystemMetrics.NetworkTotals(); var sec = Math.Max(0.1, (DateTime.UtcNow - _lastNetworkSample).TotalSeconds);
                 RxRate.Text = SystemMetrics.FormatBytes((long)(Math.Max(0, net.Received - _lastNetwork.Received) / sec)) + "/s";

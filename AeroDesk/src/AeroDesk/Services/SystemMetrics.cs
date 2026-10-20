@@ -20,7 +20,7 @@ public static class SystemMetrics
         var status = new MemoryStatus();
         if (!GlobalMemoryStatusEx(status) || status.TotalPhys == 0) return (0, "—", "—");
         var used = status.TotalPhys - status.AvailPhys;
-        return (status.MemoryLoad, FormatBytes(used), FormatBytes(status.TotalPhys));
+        return (status.MemoryLoad, FormatBytes((long)Math.Min(used, (ulong)long.MaxValue)), FormatBytes((long)Math.Min(status.TotalPhys, (ulong)long.MaxValue)));
     }
 
     public static (long Received, long Sent) NetworkTotals()
