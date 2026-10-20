@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Threading;
 using AeroDesk.Models;
 
 namespace AeroDesk.Services;
@@ -9,9 +10,15 @@ public sealed class WidgetManager : IDisposable
     private readonly AppSettings _settings;
     private readonly Dictionary<Guid, WidgetWindow> _open = [];
     private bool _restoring;
+    private bool _disposed;
+    private readonly DispatcherTimer _layoutSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
     public int ActiveCount => _open.Count;
 
-    public WidgetManager(SettingsStore store, AppSettings settings) { _store = store; _settings = settings; }
+    public WidgetManager(SettingsStore store, AppSettings settings)
+    {
+        _store = store; _settings = settings;
+        _layoutSaveTimer.Tick += (_, _) => { _layoutSaveTimer.Stop(); Save(); };
+    }
 
     public WidgetWindow AddWidget(string kind)
     {
@@ -37,14 +44,14 @@ public sealed class WidgetManager : IDisposable
     {
         var window = new WidgetWindow(record, _settings);
         _open[record.Id] = window;
-        window.LocationChanged += (_, _) => { if (!_restoring) SaveBounds(record, window); };
-        window.SizeChanged += (_, _) => { if (!_restoring) SaveBounds(record, window); };
+        window.LocationChanged += (_, _) => { if (!_restoring) { SaveBounds(record, window); QueueLayoutSave(); } };
+        window.SizeChanged += (_, _) => { if (!_restoring) { SaveBounds(record, window); QueueLayoutSave(); } };
         window.NoteChanged += (_, text) => { record.NoteText = text; Save(); };
         window.WidgetClosed += (_, _) =>
         {
             _open.Remove(record.Id);
             record.Visible = false;
-            Save();
+            if (!_disposed) Save();
             (System.Windows.Application.Current.MainWindow as MainWindow)?.RefreshStats();
         };
         window.Loaded += (_, _) => (System.Windows.Application.Current.MainWindow as MainWindow)?.RefreshStats();
@@ -67,9 +74,18 @@ public sealed class WidgetManager : IDisposable
         foreach (var window in _open.Values.ToArray()) window.ApplySettings(_settings);
         if (persist) Save();
     }
+    private void QueueLayoutSave()
+    {
+        if (_disposed || _restoring) return;
+        _layoutSaveTimer.Stop();
+        _layoutSaveTimer.Start();
+    }
     private void Save() { try { _store.Save(_settings); } catch { /* transient disk errors should not crash the UI */ } }
     public void Dispose()
     {
+        if (_disposed) return;
+        _disposed = true;
+        _layoutSaveTimer.Stop();
         Save();
         foreach (var w in _open.Values.ToArray()) w.Close();
         _open.Clear();
