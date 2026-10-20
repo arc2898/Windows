@@ -33,9 +33,19 @@ jobs:
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force AeroDesk/artifacts/installer | Out-Null
-          $iscc = Get-ChildItem 'C:\Program Files (x86)\Inno Setup\ISCC.exe' -ErrorAction SilentlyContinue
-          if (-not $iscc) { $iscc = Get-ChildItem 'C:\Program Files\Inno Setup\ISCC.exe' -ErrorAction Stop }
-          & $iscc.FullName '/DAppVersion=0.2.0' "/DSourceDir=$((Resolve-Path 'AeroDesk/artifacts/publish').Path)" 'AeroDesk/scripts/AeroDesk.iss'
+          $isccPath = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+          if (-not $isccPath) {
+            $candidates = @(
+              'C:\Program Files (x86)\Inno Setup 6\ISCC.exe',
+              'C:\Program Files\Inno Setup 6\ISCC.exe',
+              'C:\Program Files (x86)\Inno Setup\ISCC.exe',
+              'C:\Program Files\Inno Setup\ISCC.exe',
+              'C:\ProgramData\chocolatey\lib\innosetup\tools\ISCC.exe'
+            )
+            $isccPath = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if (-not $isccPath) { throw 'ISCC.exe not found; install Inno Setup or add it to PATH.' }
+          & $isccPath '/DAppVersion=0.2.0' "/DSourceDir=$((Resolve-Path 'AeroDesk/artifacts/publish').Path)" 'AeroDesk/scripts/AeroDesk.iss'
           if ($LASTEXITCODE -ne 0) { throw 'Inno Setup build failed.' }
       - name: Prepare ISO contents and portable archive
         shell: pwsh
