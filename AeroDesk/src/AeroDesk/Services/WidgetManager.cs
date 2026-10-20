@@ -45,9 +45,9 @@ public sealed class WidgetManager : IDisposable
             _open.Remove(record.Id);
             record.Visible = false;
             Save();
-            (Application.Current.MainWindow as MainWindow)?.RefreshStats();
+            (System.Windows.Application.Current.MainWindow as MainWindow)?.RefreshStats();
         };
-        window.Loaded += (_, _) => (Application.Current.MainWindow as MainWindow)?.RefreshStats();
+        window.Loaded += (_, _) => (System.Windows.Application.Current.MainWindow as MainWindow)?.RefreshStats();
         return window;
     }
 

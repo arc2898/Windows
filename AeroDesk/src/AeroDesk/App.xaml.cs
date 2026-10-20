@@ -6,7 +6,7 @@ using WinForms = System.Windows.Forms;
 
 namespace AeroDesk;
 
-public partial class App : Application
+public partial class App : System.Windows.Application
 {
     private WinForms.NotifyIcon? _trayIcon;
     public static SettingsStore Settings { get; } = new();
